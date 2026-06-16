@@ -1,34 +1,81 @@
 import React from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { TOOLS } from '../utils/constants';
-import { RotateCw } from 'lucide-react';
+import { TOOLS, BUILDING_PRICES } from '../utils/constants';
+import { RotateCw, DollarSign } from 'lucide-react';
 
 export const Toolbar: React.FC = () => {
-  const { selectedTool, setSelectedTool, resetGame, openSettlement } = useGameStore();
+  const { selectedTool, setSelectedTool, resetGame, openSettlement, budgetMode, budget, toggleBudgetMode, grid } = useGameStore();
+
+  const getToolPrice = (type: string) => BUILDING_PRICES[type] ?? 0;
+
+  const canAffordTool = (type: string) => {
+    if (!budgetMode) return true;
+    const price = getToolPrice(type);
+    return budget >= price;
+  };
+
+  const getPriceDifference = (type: string) => {
+    const price = getToolPrice(type);
+    return price - budget;
+  };
 
   return (
     <div className="flex flex-col gap-3">
       <div className="bg-white/90 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-white/50">
-        <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
-          🛠️ 建筑工具
-        </h3>
-        <div className="grid grid-cols-2 gap-2">
-          {TOOLS.map((tool) => (
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+            🛠️ 建筑工具
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-gray-500 flex items-center gap-1">
+              <DollarSign size={12} /> 预算
+            </span>
             <button
-              key={tool.type}
-              onClick={() => setSelectedTool(tool.type)}
-              className={`
-                flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-200
-                ${selectedTool === tool.type
-                  ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg scale-105 ring-2 ring-blue-300'
-                  : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:scale-102'
-                }
-              `}
+              onClick={toggleBudgetMode}
+              className={`relative w-11 h-6 rounded-full transition-all duration-300 ${
+                budgetMode ? 'bg-green-500' : 'bg-gray-300'
+              }`}
             >
-              <span className="text-2xl">{tool.emoji}</span>
-              <span className="text-xs font-semibold">{tool.name}</span>
+              <div
+                className={`absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-md transition-transform duration-300 ${
+                  budgetMode ? 'translate-x-5' : 'translate-x-0.5'
+                }`}
+              />
             </button>
-          ))}
+          </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {TOOLS.map((tool) => {
+            const price = getToolPrice(tool.type);
+            const affordable = canAffordTool(tool.type);
+            const diff = getPriceDifference(tool.type);
+            return (
+              <button
+                key={tool.type}
+                onClick={() => affordable && setSelectedTool(tool.type)}
+                disabled={budgetMode && !affordable}
+                className={`
+                  flex flex-col items-center gap-1 p-3 rounded-xl transition-all duration-200 relative
+                  ${selectedTool === tool.type
+                    ? 'bg-gradient-to-br from-blue-500 to-blue-600 text-white shadow-lg scale-105 ring-2 ring-blue-300'
+                    : budgetMode && !affordable
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed opacity-60'
+                    : 'bg-gray-50 hover:bg-gray-100 text-gray-700 hover:scale-102'
+                  }
+                `}
+              >
+                <span className="text-2xl">{tool.emoji}</span>
+                <span className="text-xs font-semibold">{tool.name}</span>
+                {budgetMode && (
+                  <span className={`text-[10px] font-bold ${
+                    selectedTool === tool.type ? 'text-blue-100' : affordable ? 'text-green-600' : 'text-red-500'
+                  }`}>
+                    {affordable ? `💰${price}` : `还差${diff}`}
+                  </span>
+                )}
+              </button>
+            );
+          })}
         </div>
       </div>
 

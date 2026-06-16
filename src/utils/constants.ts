@@ -50,3 +50,14 @@ export const DAY_LENGTH = 100;
 export const DAY_THRESHOLD = 50;
 export const TICK_INTERVAL = 300;
 export const FAULT_CHANCE = 0.002;
+
+export const BUILDING_PRICES: Record<string, number> = {
+  windmill: 100,
+  house: 80,
+  factory: 150,
+  battery: 120,
+  wire: 10,
+  remove: 20,
+};
+
+export const INITIAL_BUDGET = 1000;

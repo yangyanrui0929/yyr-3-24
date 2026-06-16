@@ -7,6 +7,8 @@ import {
   FAULT_CHANCE,
   BUILDING_STATS,
   DAY_THRESHOLD,
+  BUILDING_PRICES,
+  INITIAL_BUDGET,
 } from '../utils/constants';
 import { calculatePowerNetwork, countPoweredBuildings } from '../utils/powerCalculator';
 
@@ -17,6 +19,8 @@ interface PersistedState {
   dayTime: number;
   storedPower: number;
   satisfaction: number;
+  budget: number;
+  budgetMode: boolean;
 }
 
 interface GameState {
@@ -30,6 +34,8 @@ interface GameState {
   totalGeneration: number;
   totalConsumption: number;
   showSettlement: boolean;
+  budgetMode: boolean;
+  budget: number;
   setSelectedTool: (tool: ToolType) => void;
   placeOrRemove: (x: number, y: number) => void;
   rotateCell: (x: number, y: number) => void;
@@ -38,6 +44,8 @@ interface GameState {
   resetGame: () => void;
   openSettlement: () => void;
   closeSettlement: () => void;
+  toggleBudgetMode: () => void;
+  canAfford: (tool: ToolType, cell: GridCell) => boolean;
 }
 
 function createEmptyGrid(): GridCell[][] {
@@ -66,6 +74,8 @@ function saveToLocalStorage(state: PersistedState): void {
       dayTime: state.dayTime,
       storedPower: state.storedPower,
       satisfaction: state.satisfaction,
+      budget: state.budget,
+      budgetMode: state.budgetMode,
     });
     localStorage.setItem(STORAGE_KEY, data);
   } catch {
@@ -84,6 +94,8 @@ function loadFromLocalStorage(): PersistedState | null {
         dayTime: data.dayTime ?? 20,
         storedPower: data.storedPower ?? 10,
         satisfaction: data.satisfaction ?? 50,
+        budget: data.budget ?? INITIAL_BUDGET,
+        budgetMode: data.budgetMode ?? false,
       };
     }
   } catch {
@@ -112,6 +124,8 @@ function initGame(): Omit<GameState, keyof GameStateActions> {
   const dayTime = saved ? saved.dayTime : 20;
   const storedPower = saved ? saved.storedPower : 10;
   const satisfaction = saved ? saved.satisfaction : 50;
+  const budget = saved ? saved.budget : INITIAL_BUDGET;
+  const budgetMode = saved ? saved.budgetMode : false;
 
   const { newGrid, poweredCells, totalGeneration, totalConsumption, batteryCapacity } =
     recalcGrid(grid, dayTime, storedPower);
@@ -127,6 +141,8 @@ function initGame(): Omit<GameState, keyof GameStateActions> {
     totalGeneration,
     totalConsumption,
     showSettlement: false,
+    budget,
+    budgetMode,
   };
 }
 
@@ -140,6 +156,8 @@ type GameStateActions = Pick<
   | 'resetGame'
   | 'openSettlement'
   | 'closeSettlement'
+  | 'toggleBudgetMode'
+  | 'canAfford'
 >;
 
 export const useGameStore = create<GameState>((set, get) => ({
@@ -147,11 +165,47 @@ export const useGameStore = create<GameState>((set, get) => ({
 
   setSelectedTool: (tool) => set({ selectedTool: tool }),
 
+  toggleBudgetMode: () => {
+    const state = get();
+    const newBudgetMode = !state.budgetMode;
+    saveToLocalStorage({
+      grid: state.grid,
+      dayTime: state.dayTime,
+      storedPower: state.storedPower,
+      satisfaction: state.satisfaction,
+      budget: state.budget,
+      budgetMode: newBudgetMode,
+    });
+    set({ budgetMode: newBudgetMode });
+  },
+
+  canAfford: (tool, cell) => {
+    const state = get();
+    if (!state.budgetMode) return true;
+    if (tool === 'remove' && cell.type === 'empty') return false;
+    if (tool !== 'remove' && cell.type !== 'empty') return false;
+    const price = BUILDING_PRICES[tool] ?? 0;
+    return state.budget >= price;
+  },
+
   placeOrRemove: (x, y) => {
     const state = get();
     const newGrid = state.grid.map((row) => row.map((c) => ({ ...c })));
     const cell = newGrid[y][x];
     const tool = state.selectedTool;
+
+    if (state.budgetMode) {
+      if (tool === 'remove' && cell.type === 'empty') return;
+      if (tool !== 'remove' && cell.type !== 'empty') return;
+      const price = BUILDING_PRICES[tool] ?? 0;
+      if (state.budget < price) return;
+    }
+
+    let newBudget = state.budget;
+    if (state.budgetMode) {
+      const price = BUILDING_PRICES[tool] ?? 0;
+      newBudget = state.budget - price;
+    }
 
     if (tool === 'remove') {
       if (cell.type !== 'empty') {
@@ -181,6 +235,7 @@ export const useGameStore = create<GameState>((set, get) => ({
       totalGeneration: result.totalGeneration,
       totalConsumption: result.totalConsumption,
       maxStorage: result.batteryCapacity,
+      budget: newBudget,
     };
 
     saveToLocalStorage({
@@ -188,6 +243,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       dayTime: state.dayTime,
       storedPower: state.storedPower,
       satisfaction: state.satisfaction,
+      budget: newBudget,
+      budgetMode: state.budgetMode,
     });
 
     set(nextState);
@@ -216,6 +273,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       dayTime: state.dayTime,
       storedPower: state.storedPower,
       satisfaction: state.satisfaction,
+      budget: state.budget,
+      budgetMode: state.budgetMode,
     });
 
     set(nextState);
@@ -244,6 +303,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       dayTime: state.dayTime,
       storedPower: state.storedPower,
       satisfaction: state.satisfaction,
+      budget: state.budget,
+      budgetMode: state.budgetMode,
     });
 
     set(nextState);
@@ -309,6 +370,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       dayTime: newDayTime,
       storedPower: newStoredPower,
       satisfaction: newSatisfaction,
+      budget: state.budget,
+      budgetMode: state.budgetMode,
     });
 
     set({
@@ -338,6 +401,8 @@ export const useGameStore = create<GameState>((set, get) => ({
       totalGeneration: result.totalGeneration,
       totalConsumption: result.totalConsumption,
       showSettlement: false,
+      budget: INITIAL_BUDGET,
+      budgetMode: false,
     });
   },
 

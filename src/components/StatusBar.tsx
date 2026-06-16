@@ -1,6 +1,6 @@
 import React from 'react';
 import { useGameStore } from '../store/useGameStore';
-import { Sun, Moon, Zap, Battery, Smile, Meh, Frown } from 'lucide-react';
+import { Sun, Moon, Zap, Battery, Smile, Meh, Frown, DollarSign } from 'lucide-react';
 
 export const StatusBar: React.FC = () => {
   const {
@@ -11,6 +11,8 @@ export const StatusBar: React.FC = () => {
     maxStorage,
     satisfaction,
     openSettlement,
+    budgetMode,
+    budget,
   } = useGameStore();
 
   const isDay = dayTime < 50;
@@ -138,6 +140,24 @@ export const StatusBar: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {budgetMode && (
+          <>
+            <div className="h-10 w-px bg-gray-200" />
+
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-full bg-emerald-50 flex items-center justify-center">
+                <DollarSign className="w-5 h-5 text-emerald-500" />
+              </div>
+              <div>
+                <p className="text-xs text-gray-500">剩余预算</p>
+                <p className={`text-sm font-bold ${budget < 100 ? 'text-red-500' : budget < 300 ? 'text-yellow-600' : 'text-emerald-600'}`}>
+                  💰 {budget}
+                </p>
+              </div>
+            </div>
+          </>
+        )}
 
         <div className="h-10 w-px bg-gray-200" />
 
